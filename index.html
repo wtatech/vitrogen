@@ -200,6 +200,7 @@ const I18N = {
     labelVencimiento: 'Vencimiento', labelFechaEntrada: 'Fecha de entrada',
     cancelBtn: 'Cancelar', saveChangesBtn: 'Guardar cambios',
     modalNewOrderTitle: 'Nuevo envío', modalNewOrderSub: 'Elige los medios enviados; se descuentan del stock al guardar.',
+    modalEditOrderTitle: 'Editar envío', modalEditOrderSub: 'Corrige el cliente, la fecha o los medios enviados.',
     labelCliente: 'Cliente', labelFecha: 'Fecha', labelMediosEnviados: 'Medios enviados',
     selectPlaceholder: 'Selecciona medio y lote…', remainingSuffix: 'quedan {n}',
     addAnotherBtn: '+ Agregar otro medio', placeholderCant: 'Cant.', registerOrderBtn: 'Registrar envío'
@@ -239,6 +240,7 @@ const I18N = {
     labelVencimiento: 'Expiry date', labelFechaEntrada: 'Entry date',
     cancelBtn: 'Cancel', saveChangesBtn: 'Save changes',
     modalNewOrderTitle: 'New shipment', modalNewOrderSub: 'Choose the media sent; they get deducted from stock on save.',
+    modalEditOrderTitle: 'Edit shipment', modalEditOrderSub: 'Update the client, date or media sent.',
     labelCliente: 'Client', labelFecha: 'Date', labelMediosEnviados: 'Media sent',
     selectPlaceholder: 'Select medium and batch…', remainingSuffix: '{n} left',
     addAnotherBtn: '+ Add another medium', placeholderCant: 'Qty.', registerOrderBtn: 'Log shipment'
@@ -278,6 +280,7 @@ const I18N = {
     labelVencimiento: 'Validade', labelFechaEntrada: 'Data de entrada',
     cancelBtn: 'Cancelar', saveChangesBtn: 'Salvar alterações',
     modalNewOrderTitle: 'Novo envio', modalNewOrderSub: 'Escolha os meios enviados; serão descontados do estoque ao salvar.',
+    modalEditOrderTitle: 'Editar envio', modalEditOrderSub: 'Corrija o cliente, a data ou os meios enviados.',
     labelCliente: 'Cliente', labelFecha: 'Data', labelMediosEnviados: 'Meios enviados',
     selectPlaceholder: 'Selecione meio e lote…', remainingSuffix: 'restam {n}',
     addAnotherBtn: '+ Adicionar outro meio', placeholderCant: 'Qtde.', registerOrderBtn: 'Registrar envio'
@@ -330,11 +333,14 @@ function daysUntil(iso){
   return Math.round((d - now) / 86400000);
 }
 
-function remainingFor(batchId, draftExcludeIdx, draftItems){
+function remainingFor(batchId, draftExcludeIdx, draftItems, excludeOrderId){
   const batch = state.batches.find(b => b.id === batchId);
   if(!batch) return 0;
   let used = 0;
-  state.orders.forEach(o => o.items.forEach(it => { if(it.batchId === batchId) used += Number(it.cantidad); }));
+  state.orders.forEach(o => {
+    if(excludeOrderId && o.id === excludeOrderId) return;
+    o.items.forEach(it => { if(it.batchId === batchId) used += Number(it.cantidad); });
+  });
   if(draftItems){
     draftItems.forEach((it, idx) => {
       if(idx === draftExcludeIdx) return;
@@ -446,7 +452,16 @@ async function deleteBatch(id){
 }
 
 function openNewOrder(){
-  state.modal = { type:'order', data:{ cliente:'', fecha:new Date().toISOString().slice(0,10), items:[{batchId:'', cantidad:''}] }, error:'' };
+  state.modal = { type:'order', data:{ id:null, cliente:'', fecha:new Date().toISOString().slice(0,10), items:[{batchId:'', cantidad:''}] }, error:'' };
+  render();
+}
+function openEditOrder(id){
+  const o = state.orders.find(x=>x.id===id);
+  if(!o) return;
+  state.modal = { type:'order', data:{
+    id: o.id, cliente: o.cliente, fecha: o.fecha,
+    items: o.items.map(it => ({ batchId: it.batchId, cantidad: it.cantidad }))
+  }, error:'' };
   render();
 }
 function addOrderItemLine(){
@@ -465,7 +480,7 @@ async function submitOrder(){
   for(let i=0;i<d.items.length;i++){
     const it = d.items[i];
     if(!it.batchId || !it.cantidad) continue;
-    const rem = remainingFor(it.batchId, i, d.items);
+    const rem = remainingFor(it.batchId, i, d.items, d.id);
     if(Number(it.cantidad) > rem){
       const b = state.batches.find(x=>x.id===it.batchId);
       state.modal.error = t('errOrderInsufficientStock', { medio:b.medio, lote:b.lote, rem });
@@ -477,9 +492,17 @@ async function submitOrder(){
     return { batchId: it.batchId, medio:b.medio, embalagem:b.embalagem, lote:b.lote, cantidad:Number(it.cantidad) };
   });
   try {
-    const { data, error } = await db.from('orders').insert([{ cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems }]).select();
-    if(error) throw error;
-    state.orders.unshift(data[0]);
+    if(d.id){
+      const payload = { cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems };
+      const { error } = await db.from('orders').update(payload).eq('id', d.id);
+      if(error) throw error;
+      const idx = state.orders.findIndex(x=>x.id===d.id);
+      if(idx>-1) state.orders[idx] = { ...state.orders[idx], ...payload };
+    } else {
+      const { data, error } = await db.from('orders').insert([{ cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems }]).select();
+      if(error) throw error;
+      state.orders.unshift(data[0]);
+    }
     state.modal = null;
   } catch(e){
     state.modal.error = t('errOrderSaveFail');
@@ -636,7 +659,7 @@ function render(){
           html += `<div class="order-item-line"><span>${escapeHtml(it.medio)} · ${escapeHtml(it.embalagem)} · <span class="mono">${escapeHtml(it.lote)}</span></span><span class="qty mono">${it.cantidad}</span></div>`;
         });
         html += `</div>
-        <div class="order-actions"><button class="btn-text" onclick="voidOrder('${o.id}')">${t('voidOrderBtn')}</button></div>`;
+        <div class="order-actions"><button class="btn-text link" onclick="openEditOrder('${o.id}')">${t('editBtn')}</button><button class="btn-text" onclick="voidOrder('${o.id}')">${t('voidOrderBtn')}</button></div>`;
       }
       html += `</div>`;
     });
@@ -684,14 +707,15 @@ function renderModal(){
     </div>`;
   } else {
     const d = m.data;
-    const availableBatches = state.batches.filter(b => remainingFor(b.id) > 0 || d.items.some(it=>it.batchId===b.id));
+    const isEdit = !!d.id;
+    const availableBatches = state.batches.filter(b => remainingFor(b.id, null, null, d.id) > 0 || d.items.some(it=>it.batchId===b.id));
     let itemsHtml = '';
     d.items.forEach((it, idx) => {
-      const rem = it.batchId ? remainingFor(it.batchId, idx, d.items) : null;
+      const rem = it.batchId ? remainingFor(it.batchId, idx, d.items, d.id) : null;
       itemsHtml += `<div class="item-line">
         <select onchange="state.modal.data.items[${idx}].batchId=this.value; render()">
           <option value="">${t('selectPlaceholder')}</option>
-          ${availableBatches.map(b => `<option value="${b.id}" ${it.batchId===b.id?'selected':''}>${escapeHtml(b.medio)} · ${escapeHtml(b.embalagem)} · ${escapeHtml(b.lote)} (${t('remainingSuffix',{n:remainingFor(b.id, idx, d.items)})})</option>`).join('')}
+          ${availableBatches.map(b => `<option value="${b.id}" ${it.batchId===b.id?'selected':''}>${escapeHtml(b.medio)} · ${escapeHtml(b.embalagem)} · ${escapeHtml(b.lote)} (${t('remainingSuffix',{n:remainingFor(b.id, idx, d.items, d.id)})})</option>`).join('')}
         </select>
         <input type="number" min="1" placeholder="${t('placeholderCant')}" value="${escapeAttr(it.cantidad)}" oninput="state.modal.data.items[${idx}].cantidad=this.value; render()">
         <button class="item-remove" onclick="removeOrderItemLine(${idx})">×</button>
@@ -699,8 +723,8 @@ function renderModal(){
     });
     return `<div class="overlay" onclick="if(event.target===this) closeModal()">
       <div class="modal">
-        <h3>${t('modalNewOrderTitle')}</h3>
-        <div class="modal-sub">${t('modalNewOrderSub')}</div>
+        <h3>${isEdit ? t('modalEditOrderTitle') : t('modalNewOrderTitle')}</h3>
+        <div class="modal-sub">${isEdit ? t('modalEditOrderSub') : t('modalNewOrderSub')}</div>
         <div class="field-row">
           <div class="field"><label>${t('labelCliente')}</label><input value="${escapeAttr(d.cliente)}" oninput="state.modal.data.cliente=this.value"></div>
           <div class="field"><label>${t('labelFecha')}</label><input type="date" value="${escapeAttr(d.fecha)}" oninput="state.modal.data.fecha=this.value"></div>
@@ -711,7 +735,7 @@ function renderModal(){
         ${m.error ? `<div class="error-msg">${escapeHtml(m.error)}</div>` : ''}
         <div class="modal-actions">
           <button class="btn-ghost" onclick="closeModal()">${t('cancelBtn')}</button>
-          <button class="btn-primary" onclick="submitOrder()">${t('registerOrderBtn')}</button>
+          <button class="btn-primary" onclick="submitOrder()">${isEdit ? t('saveChangesBtn') : t('registerOrderBtn')}</button>
         </div>
       </div>
     </div>`;
