@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -144,6 +144,28 @@
   .remaining-hint { font-size:11px; color:var(--ink-faint); margin-top:3px; }
 
   .footer-note { margin-top:22px; font-size:11.5px; color:var(--ink-faint); text-align:center; line-height:1.6; }
+  /* ---- Documentos adjuntos por envío ---- */
+  .doc-pills { display:flex; gap:5px; margin-top:6px; flex-wrap:wrap; }
+  .doc-pill { font-size:10.5px; line-height:1; padding:3px 8px; border-radius:10px; border:1px solid var(--border-strong); color:var(--ink-faint); background:transparent; }
+  .doc-pill.on { background:var(--accent-soft); border-color:var(--accent); color:var(--accent-dark); font-weight:500; }
+  .doc-links { margin-top:10px; padding-top:8px; border-top:1px dashed var(--border); display:flex; flex-direction:column; gap:2px; }
+  .doc-link { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:2px 0; }
+  .doc-link .kind { flex:0 0 auto; min-width:78px; font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }
+  .doc-link .btn-text { text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
+  .doc-link .sz, .attach-file .sz { flex:0 0 auto; color:var(--ink-faint); font-size:11px; white-space:nowrap; }
+  .doc-none { font-size:12px; color:var(--ink-faint); }
+  .attach-group { border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-bottom:8px; background:var(--bg); }
+  .attach-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .attach-title { font-size:12.5px; font-weight:600; color:var(--ink); }
+  .attach-add { font-size:12px; color:var(--accent); background:var(--surface); border:1px dashed var(--border-strong); border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; }
+  .attach-add:hover { border-color:var(--accent); }
+  .attach-files { margin-top:8px; display:flex; flex-direction:column; gap:5px; }
+  .attach-file { display:flex; align-items:center; gap:8px; font-size:12.5px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:3px 4px 3px 9px; }
+  .attach-file .nm { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; padding:0; }
+  .attach-file .item-remove { padding:0 6px; line-height:1.2; }
+  /* móvil: que el campo de cantidad no se salga del recuadro */
+  .item-line { grid-template-columns:minmax(0,1fr) 90px 28px; }
+  .item-line select { min-width:0; text-overflow:ellipsis; }
 </style>
 </head>
 <body>
@@ -203,7 +225,15 @@ const I18N = {
     modalEditOrderTitle: 'Editar envío', modalEditOrderSub: 'Corrige el cliente, la fecha o los medios enviados.',
     labelCliente: 'Cliente', labelFecha: 'Fecha', labelMediosEnviados: 'Medios enviados',
     selectPlaceholder: 'Selecciona medio y lote…', remainingSuffix: 'quedan {n}',
-    addAnotherBtn: '+ Agregar otro medio', placeholderCant: 'Cant.', registerOrderBtn: 'Registrar envío'
+    addAnotherBtn: '+ Agregar otro medio', placeholderCant: 'Cant.', registerOrderBtn: 'Registrar envío',
+    labelDocs: 'Documentos del envío', doc_invoice: 'Invoice (PDF)', doc_label: 'Label de envío (PDF)', doc_receipt: 'Comprobante de pago (foto o PDF)',
+    pill_invoice: 'Invoice', pill_label: 'Label', pill_receipt: 'Pago',
+    addFileBtn: '+ Agregar', pendingTag: 'se sube al guardar', savingBtn: 'Guardando…', processingBtn: 'Procesando…', noDocs: 'Sin documentos. Usa Editar para adjuntarlos.',
+    errFileType: 'Solo se aceptan PDF o fotos (JPG, PNG, WEBP, HEIC).', errFileSize: 'El archivo supera los 15 MB: {name}',
+    errUploadFail: 'No se pudo subir un archivo. Verifica que el bucket "shipment-docs" y sus políticas existan (script SQL de adjuntos).',
+    errNeedSql: 'Falta ejecutar el script SQL de adjuntos en Supabase (columna "attachments").',
+    alertOpenFail: 'No se pudo abrir el archivo.',
+    confirmVoidOrderFiles: '¿Anular este envío? Las cantidades volverán al stock y se eliminarán {n} archivo(s) adjunto(s).'
   },
   en: {
     headerTitle: 'Stock Control — Culture Media',
@@ -243,7 +273,15 @@ const I18N = {
     modalEditOrderTitle: 'Edit shipment', modalEditOrderSub: 'Update the client, date or media sent.',
     labelCliente: 'Client', labelFecha: 'Date', labelMediosEnviados: 'Media sent',
     selectPlaceholder: 'Select medium and batch…', remainingSuffix: '{n} left',
-    addAnotherBtn: '+ Add another medium', placeholderCant: 'Qty.', registerOrderBtn: 'Log shipment'
+    addAnotherBtn: '+ Add another medium', placeholderCant: 'Qty.', registerOrderBtn: 'Log shipment',
+    labelDocs: 'Shipment documents', doc_invoice: 'Invoice (PDF)', doc_label: 'Shipping label (PDF)', doc_receipt: 'Payment receipt (photo or PDF)',
+    pill_invoice: 'Invoice', pill_label: 'Label', pill_receipt: 'Payment',
+    addFileBtn: '+ Add', pendingTag: 'uploads on save', savingBtn: 'Saving…', processingBtn: 'Processing…', noDocs: 'No documents. Use Edit to attach them.',
+    errFileType: 'Only PDF or photos are accepted (JPG, PNG, WEBP, HEIC).', errFileSize: 'File is over 15 MB: {name}',
+    errUploadFail: 'Could not upload a file. Check that the "shipment-docs" bucket and its policies exist (attachments SQL script).',
+    errNeedSql: 'The attachments SQL script has not been run in Supabase yet ("attachments" column).',
+    alertOpenFail: 'Could not open the file.',
+    confirmVoidOrderFiles: 'Void this shipment? The quantities will return to stock and {n} attached file(s) will be deleted.'
   },
   pt: {
     headerTitle: 'Controle de Estoque — Meios de Cultivo',
@@ -283,7 +321,15 @@ const I18N = {
     modalEditOrderTitle: 'Editar envio', modalEditOrderSub: 'Corrija o cliente, a data ou os meios enviados.',
     labelCliente: 'Cliente', labelFecha: 'Data', labelMediosEnviados: 'Meios enviados',
     selectPlaceholder: 'Selecione meio e lote…', remainingSuffix: 'restam {n}',
-    addAnotherBtn: '+ Adicionar outro meio', placeholderCant: 'Qtde.', registerOrderBtn: 'Registrar envio'
+    addAnotherBtn: '+ Adicionar outro meio', placeholderCant: 'Qtde.', registerOrderBtn: 'Registrar envio',
+    labelDocs: 'Documentos do envio', doc_invoice: 'Invoice (PDF)', doc_label: 'Etiqueta de envio (PDF)', doc_receipt: 'Comprovante de pagamento (foto ou PDF)',
+    pill_invoice: 'Invoice', pill_label: 'Label', pill_receipt: 'Pagamento',
+    addFileBtn: '+ Adicionar', pendingTag: 'enviado ao salvar', savingBtn: 'Salvando…', processingBtn: 'Processando…', noDocs: 'Sem documentos. Use Editar para anexá-los.',
+    errFileType: 'Somente PDF ou fotos (JPG, PNG, WEBP, HEIC).', errFileSize: 'O arquivo excede 15 MB: {name}',
+    errUploadFail: 'Não foi possível enviar um arquivo. Verifique se o bucket "shipment-docs" e suas políticas existem (script SQL de anexos).',
+    errNeedSql: 'Falta executar o script SQL de anexos no Supabase (coluna "attachments").',
+    alertOpenFail: 'Não foi possível abrir o arquivo.',
+    confirmVoidOrderFiles: 'Anular este envio? As quantidades voltarão ao estoque e {n} arquivo(s) anexado(s) será(ão) excluído(s).'
   }
 };
 
@@ -452,7 +498,7 @@ async function deleteBatch(id){
 }
 
 function openNewOrder(){
-  state.modal = { type:'order', data:{ id:null, cliente:'', fecha:new Date().toISOString().slice(0,10), items:[{batchId:'', cantidad:''}] }, error:'' };
+  state.modal = { type:'order', data:{ id:null, cliente:'', fecha:new Date().toISOString().slice(0,10), items:[{batchId:'', cantidad:''}], attachments:[], newFiles:[] }, error:'' };
   render();
 }
 function openEditOrder(id){
@@ -460,7 +506,8 @@ function openEditOrder(id){
   if(!o) return;
   state.modal = { type:'order', data:{
     id: o.id, cliente: o.cliente, fecha: o.fecha,
-    items: o.items.map(it => ({ batchId: it.batchId, cantidad: it.cantidad }))
+    items: o.items.map(it => ({ batchId: it.batchId, cantidad: it.cantidad })),
+    attachments: (o.attachments || []).map(a => ({ ...a })), newFiles: []
   }, error:'' };
   render();
 }
@@ -473,17 +520,19 @@ function removeOrderItemLine(idx){
   render();
 }
 async function submitOrder(){
-  const d = state.modal.data;
-  if(!d.cliente.trim()){ state.modal.error = t('errOrderClienteRequired'); render(); return; }
+  const m = state.modal;
+  if(!m || m.saving || m.busy) return;
+  const d = m.data;
+  if(!d.cliente.trim()){ m.error = t('errOrderClienteRequired'); render(); return; }
   const items = d.items.filter(it => it.batchId && Number(it.cantidad) > 0);
-  if(items.length === 0){ state.modal.error = t('errOrderNeedItem'); render(); return; }
+  if(items.length === 0){ m.error = t('errOrderNeedItem'); render(); return; }
   for(let i=0;i<d.items.length;i++){
     const it = d.items[i];
     if(!it.batchId || !it.cantidad) continue;
     const rem = remainingFor(it.batchId, i, d.items, d.id);
     if(Number(it.cantidad) > rem){
       const b = state.batches.find(x=>x.id===it.batchId);
-      state.modal.error = t('errOrderInsufficientStock', { medio:b.medio, lote:b.lote, rem });
+      m.error = t('errOrderInsufficientStock', { medio:b.medio, lote:b.lote, rem });
       render(); return;
     }
   }
@@ -491,35 +540,206 @@ async function submitOrder(){
     const b = state.batches.find(x=>x.id===it.batchId);
     return { batchId: it.batchId, medio:b.medio, embalagem:b.embalagem, lote:b.lote, cantidad:Number(it.cantidad) };
   });
+  const keptAtt = (d.attachments || []).filter(a => !a._removed).map(a => { const c = { ...a }; delete c._removed; return c; });
+  const removedPaths = (d.attachments || []).filter(a => a._removed).map(a => a.path);
+  const uploaded = [];
+  m.saving = true; m.error = ''; render();
   try {
+    // 1) subir los archivos nuevos al bucket privado
+    for(const nf of (d.newFiles || [])){
+      const path = `${docFolder()}/${nf.type}_${safeFileName(nf.file.name)}`;
+      const { error } = await db.storage.from(DOC_BUCKET).upload(path, nf.file, { contentType: nf.file.type || 'application/octet-stream', upsert:false });
+      if(error){ const ue = new Error('upload'); ue.kind = 'upload'; throw ue; }
+      uploaded.push({ type:nf.type, name:nf.file.name, path, size:nf.file.size, mime:nf.file.type || '' });
+    }
+    const attachments = [...keptAtt, ...uploaded];
+    // 2) guardar el envío (la columna attachments solo se envía si hace falta)
+    const payload = { cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems };
     if(d.id){
-      const payload = { cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems };
+      const prev = state.orders.find(x=>x.id===d.id);
+      if(attachments.length || (prev && 'attachments' in prev)) payload.attachments = attachments;
       const { error } = await db.from('orders').update(payload).eq('id', d.id);
       if(error) throw error;
       const idx = state.orders.findIndex(x=>x.id===d.id);
       if(idx>-1) state.orders[idx] = { ...state.orders[idx], ...payload };
     } else {
-      const { data, error } = await db.from('orders').insert([{ cliente: d.cliente.trim(), fecha: d.fecha, items: snapshotItems }]).select();
+      if(attachments.length) payload.attachments = attachments;
+      const { data, error } = await db.from('orders').insert([payload]).select();
       if(error) throw error;
       state.orders.unshift(data[0]);
     }
+    // 3) borrar del bucket los archivos que el usuario quitó
+    if(removedPaths.length){ try { await db.storage.from(DOC_BUCKET).remove(removedPaths); } catch(e2){} }
     state.modal = null;
   } catch(e){
-    state.modal.error = t('errOrderSaveFail');
+    // si algo falló, no dejar archivos huérfanos en el bucket
+    if(uploaded.length){ try { await db.storage.from(DOC_BUCKET).remove(uploaded.map(u => u.path)); } catch(e2){} }
+    if(state.modal === m){
+      m.saving = false;
+      if(e && e.kind === 'upload') m.error = t('errUploadFail');
+      else if(String((e && e.message) || '').includes('attachments')) m.error = t('errNeedSql');
+      else m.error = t('errOrderSaveFail');
+    }
   }
   render();
 }
 async function voidOrder(id){
-  if(!confirm(t('confirmVoidOrder'))) return;
+  const o = state.orders.find(x=>x.id===id);
+  const atts = (o && o.attachments) || [];
+  if(!confirm(atts.length ? t('confirmVoidOrderFiles', { n: atts.length }) : t('confirmVoidOrder'))) return;
   try {
     const { error } = await db.from('orders').delete().eq('id', id);
     if(error) throw error;
     state.orders = state.orders.filter(o=>o.id!==id);
+    if(atts.length){ try { await db.storage.from(DOC_BUCKET).remove(atts.map(a => a.path)); } catch(e2){} }
   } catch(e){ alert(t('alertVoidFail')); }
   render();
 }
 
-function closeModal(){ state.modal = null; render(); }
+// ---------- Documentos adjuntos (invoice, label, comprobante) ----------
+const DOC_BUCKET = 'shipment-docs';
+const DOC_TYPES = ['invoice','label','receipt'];
+const DOC_MAX_BYTES = 15 * 1024 * 1024;
+const DOC_ACCEPT = 'application/pdf,image/*';
+const DOC_OK_MIME = ['application/pdf','image/jpeg','image/png','image/webp','image/heic','image/heif'];
+
+function docFolder(){
+  try { if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){}
+  return uid() + uid();
+}
+function safeFileName(name){
+  const s = String(name || 'file').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]+/g,'_');
+  return s.slice(-80) || 'file';
+}
+function fmtSize(n){
+  n = Number(n) || 0;
+  if(n >= 1048576) return (n/1048576).toFixed(1) + ' MB';
+  return Math.max(1, Math.round(n/1024)) + ' KB';
+}
+
+// Las fotos grandes del celular se reducen (máx. 1800 px, JPEG) para no llenar el almacenamiento.
+async function prepareFile(file){
+  if(!(file.type || '').startsWith('image/') || file.size < 600*1024) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+    if(bmp.close) bmp.close();
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.82));
+    if(!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type:'image/jpeg' });
+  } catch(e){ return file; }
+}
+
+async function onPickFiles(type, input){
+  const files = Array.from(input.files || []);
+  input.value = '';
+  const m = state.modal;
+  if(!files.length || !m) return;
+  m.error = '';
+  m.busy = (m.busy || 0) + 1; render();
+  for(let f of files){
+    const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    if(isPdf && f.type !== 'application/pdf') f = new File([f], f.name, { type:'application/pdf' });
+    if(!isPdf && !(f.type || '').startsWith('image/')){ m.error = t('errFileType'); continue; }
+    f = await prepareFile(f);
+    if(!DOC_OK_MIME.includes((f.type || '').toLowerCase())){ m.error = t('errFileType'); continue; }
+    if(f.size > DOC_MAX_BYTES){ m.error = t('errFileSize', { name: f.name }); continue; }
+    m.data.newFiles.push({ type, file: f });
+  }
+  m.busy = Math.max(0, (m.busy || 1) - 1);
+  if(state.modal === m) render();
+}
+function removeAttachment(i){ const a = state.modal.data.attachments[i]; if(a){ a._removed = true; render(); } }
+function removeNewFile(i){ state.modal.data.newFiles.splice(i, 1); render(); }
+
+async function openStoragePath(path){
+  // se abre la pestaña de inmediato (por los bloqueadores de ventanas) y luego se le asigna la URL firmada
+  const w = window.open('', '_blank');
+  try {
+    const { data, error } = await db.storage.from(DOC_BUCKET).createSignedUrl(path, 3600);
+    if(error || !data || !data.signedUrl) throw (error || new Error('no url'));
+    if(w) w.location.href = data.signedUrl; else window.location.href = data.signedUrl;
+  } catch(e){
+    if(w) w.close();
+    alert(t('alertOpenFail'));
+  }
+}
+function openDoc(orderId, idx){
+  const o = state.orders.find(x => String(x.id) === String(orderId));
+  const a = o && (o.attachments || [])[idx];
+  if(a) openStoragePath(a.path);
+}
+function openModalDoc(i){
+  const a = state.modal && state.modal.data.attachments[i];
+  if(a) openStoragePath(a.path);
+}
+
+function docPillsHtml(o){
+  const atts = o.attachments || [];
+  return `<div class="doc-pills">` + DOC_TYPES.map(type => {
+    const n = atts.filter(a => a.type === type).length;
+    return `<span class="doc-pill ${n ? 'on' : ''}">${n ? '✓ ' : ''}${t('pill_' + type)}${n > 1 ? ' ×' + n : ''}</span>`;
+  }).join('') + `</div>`;
+}
+function docLinksHtml(o){
+  const atts = o.attachments || [];
+  if(!atts.length) return `<div class="doc-links"><div class="doc-none">${t('noDocs')}</div></div>`;
+  let h = `<div class="doc-links">`;
+  DOC_TYPES.forEach(type => {
+    atts.forEach((a, i) => {
+      if(a.type !== type) return;
+      h += `<div class="doc-link"><span class="kind">${t('pill_' + type)}</span><button type="button" class="btn-text link" onclick="openDoc('${o.id}', ${i})">${escapeHtml(a.name)}</button><span class="sz">${fmtSize(a.size)}</span></div>`;
+    });
+  });
+  return h + `</div>`;
+}
+function renderAttachBlock(){
+  const d = state.modal.data;
+  let h = `<label style="display:block;font-size:12px;color:var(--ink-soft);margin:16px 0 6px;">${t('labelDocs')}</label>`;
+  DOC_TYPES.forEach(type => {
+    const kept = (d.attachments || []).map((a, i) => ({ a, i })).filter(x => x.a.type === type && !x.a._removed);
+    const fresh = (d.newFiles || []).map((f, i) => ({ f, i })).filter(x => x.f.type === type);
+    h += `<div class="attach-group">
+      <div class="attach-head">
+        <span class="attach-title">${t('doc_' + type)}</span>
+        <label class="attach-add">${t('addFileBtn')}<input type="file" multiple accept="${DOC_ACCEPT}" style="display:none" onchange="onPickFiles('${type}', this)"></label>
+      </div>`;
+    if(kept.length || fresh.length){
+      h += `<div class="attach-files">`;
+      kept.forEach(x => {
+        h += `<div class="attach-file"><button type="button" class="btn-text link nm" onclick="openModalDoc(${x.i})">${escapeHtml(x.a.name)}</button><span class="sz">${fmtSize(x.a.size)}</span><button type="button" class="item-remove" onclick="removeAttachment(${x.i})">×</button></div>`;
+      });
+      fresh.forEach(x => {
+        h += `<div class="attach-file"><span class="nm">${escapeHtml(x.f.file.name)}</span><span class="sz">${fmtSize(x.f.file.size)} · ${t('pendingTag')}</span><button type="button" class="item-remove" onclick="removeNewFile(${x.i})">×</button></div>`;
+      });
+      h += `</div>`;
+    }
+    h += `</div>`;
+  });
+  return h;
+}
+
+function closeModal(){ if(state.modal && state.modal.saving) return; state.modal = null; render(); }
+
+// render() vuelve a dibujar todo; estas dos funciones devuelven el cursor al campo que se estaba escribiendo
+function focusEnd(el){
+  el.focus();
+  try { const n = el.value.length; el.setSelectionRange(n, n); }
+  catch(e){ const v = el.value; el.value = ''; el.value = v; }   // type=number no admite setSelectionRange
+}
+function refocusSearch(){
+  const el = document.querySelector('.search-row input');
+  if(el) focusEnd(el);
+}
+function refocusQty(idx){
+  const line = document.querySelectorAll('.item-line')[idx];
+  const el = line && line.querySelector('input');
+  if(el) focusEnd(el);
+}
 
 // ---------- Render ----------
 
@@ -592,7 +812,7 @@ function render(){
       <div><h2>${t('stockPanelTitle')}</h2><div class="sub">${t('stockPanelSub')}</div></div>
       <button class="btn-primary" onclick="openAddBatch()">${t('addBatchBtn')}</button>
     </div>
-    <div class="search-row"><input placeholder="${t('searchPlaceholder')}" value="${escapeAttr(state.search)}" oninput="state.search=this.value; render()"></div>`;
+    <div class="search-row"><input placeholder="${t('searchPlaceholder')}" value="${escapeAttr(state.search)}" oninput="state.search=this.value; render(); refocusSearch()"></div>`;
 
   if(groupNames.length === 0){
     html += state.batches.length === 0
@@ -650,6 +870,7 @@ function render(){
           <div>
             <div class="cliente">${escapeHtml(o.cliente)}</div>
             <div class="meta">${fmtDate(o.fecha)} · ${t('orderMeta', {n:o.items.length, u:totalItems})}</div>
+            ${docPillsHtml(o)}
           </div>
           <div class="meta">${expanded ? '▲' : '▼'}</div>
         </div>`;
@@ -659,6 +880,7 @@ function render(){
           html += `<div class="order-item-line"><span>${escapeHtml(it.medio)} · ${escapeHtml(it.embalagem)} · <span class="mono">${escapeHtml(it.lote)}</span></span><span class="qty mono">${it.cantidad}</span></div>`;
         });
         html += `</div>
+        ${docLinksHtml(o)}
         <div class="order-actions"><button class="btn-text link" onclick="openEditOrder('${o.id}')">${t('editBtn')}</button><button class="btn-text" onclick="voidOrder('${o.id}')">${t('voidOrderBtn')}</button></div>`;
       }
       html += `</div>`;
@@ -717,7 +939,7 @@ function renderModal(){
           <option value="">${t('selectPlaceholder')}</option>
           ${availableBatches.map(b => `<option value="${b.id}" ${it.batchId===b.id?'selected':''}>${escapeHtml(b.medio)} · ${escapeHtml(b.embalagem)} · ${escapeHtml(b.lote)} (${t('remainingSuffix',{n:remainingFor(b.id, idx, d.items, d.id)})})</option>`).join('')}
         </select>
-        <input type="number" min="1" placeholder="${t('placeholderCant')}" value="${escapeAttr(it.cantidad)}" oninput="state.modal.data.items[${idx}].cantidad=this.value; render()">
+        <input type="number" min="1" placeholder="${t('placeholderCant')}" value="${escapeAttr(it.cantidad)}" oninput="state.modal.data.items[${idx}].cantidad=this.value; render(); refocusQty(${idx})">
         <button class="item-remove" onclick="removeOrderItemLine(${idx})">×</button>
       </div>`;
     });
@@ -732,10 +954,11 @@ function renderModal(){
         <label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:6px;">${t('labelMediosEnviados')}</label>
         ${itemsHtml}
         <button class="add-item-btn" onclick="addOrderItemLine()">${t('addAnotherBtn')}</button>
+        ${renderAttachBlock()}
         ${m.error ? `<div class="error-msg">${escapeHtml(m.error)}</div>` : ''}
         <div class="modal-actions">
           <button class="btn-ghost" onclick="closeModal()">${t('cancelBtn')}</button>
-          <button class="btn-primary" onclick="submitOrder()">${isEdit ? t('saveChangesBtn') : t('registerOrderBtn')}</button>
+          <button class="btn-primary" ${(m.saving || m.busy) ? 'disabled style="opacity:.6;cursor:wait"' : ''} onclick="submitOrder()">${m.saving ? t('savingBtn') : (m.busy ? t('processingBtn') : (isEdit ? t('saveChangesBtn') : t('registerOrderBtn')))}</button>
         </div>
       </div>
     </div>`;
